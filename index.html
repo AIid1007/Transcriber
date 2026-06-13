@@ -1,0 +1,784 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Transcriber — Free YouTube & Instagram Transcription</title>
+    <style>
+        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+        :root {
+            --bg: #0e0e12;
+            --surface: #1a1a24;
+            --surface2: #24243a;
+            --border: #2e2e48;
+            --text: #e4e4f0;
+            --text-dim: #8888a8;
+            --accent: #6c5ce7;
+            --accent-glow: #a78bfa;
+            --success: #34d399;
+            --warn: #fbbf24;
+            --danger: #f87171;
+            --radius: 12px;
+        }
+
+        body {
+            font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+            background: var(--bg);
+            color: var(--text);
+            min-height: 100vh;
+            line-height: 1.6;
+        }
+
+        .container {
+            max-width: 760px;
+            margin: 0 auto;
+            padding: 24px 20px 60px;
+        }
+
+        /* --- Header --- */
+        header {
+            text-align: center;
+            padding: 32px 0 24px;
+        }
+        header h1 {
+            font-size: 1.8rem;
+            font-weight: 700;
+            letter-spacing: -0.02em;
+        }
+        header p {
+            color: var(--text-dim);
+            font-size: 0.95rem;
+            margin-top: 6px;
+        }
+
+        /* --- Mode Badge --- */
+        #mode-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            margin-top: 14px;
+            padding: 6px 16px;
+            border-radius: 100px;
+            font-size: 0.8rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            border: 1px solid var(--border);
+            background: var(--surface);
+            transition: all 0.3s;
+        }
+        #mode-badge .dot {
+            width: 8px; height: 8px;
+            border-radius: 50%;
+            background: var(--text-dim);
+            transition: background 0.3s;
+        }
+        #mode-badge.full .dot { background: var(--success); }
+        #mode-badge.browser .dot { background: var(--warn); }
+        #mode-badge.checking .dot { background: var(--text-dim); animation: pulse 1s infinite; }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.3; }
+        }
+
+        /* --- Sections --- */
+        section {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            padding: 24px;
+            margin-top: 20px;
+        }
+        section h2 {
+            font-size: 0.85rem;
+            text-transform: uppercase;
+            letter-spacing: 0.08em;
+            color: var(--text-dim);
+            margin-bottom: 16px;
+        }
+
+        /* --- URL Input --- */
+        .url-row {
+            display: flex;
+            gap: 10px;
+        }
+        .url-row input {
+            flex: 1;
+            padding: 12px 16px;
+            background: var(--bg);
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            color: var(--text);
+            font-size: 0.95rem;
+            outline: none;
+            transition: border-color 0.2s;
+        }
+        .url-row input:focus { border-color: var(--accent); }
+        .url-row input:disabled {
+            opacity: 0.4;
+            cursor: not-allowed;
+        }
+
+        .btn {
+            padding: 12px 22px;
+            border: none;
+            border-radius: var(--radius);
+            font-size: 0.9rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .btn-primary {
+            background: var(--accent);
+            color: #fff;
+        }
+        .btn-primary:hover { background: var(--accent-glow); }
+        .btn-primary:disabled { opacity: 0.4; cursor: not-allowed; }
+        .btn-secondary {
+            background: var(--surface2);
+            color: var(--text);
+            border: 1px solid var(--border);
+        }
+        .btn-secondary:hover { background: var(--border); }
+
+        .url-disabled-note {
+            margin-top: 10px;
+            padding: 10px 14px;
+            background: rgba(251, 191, 36, 0.08);
+            border: 1px solid rgba(251, 191, 36, 0.2);
+            border-radius: 8px;
+            font-size: 0.82rem;
+            color: var(--warn);
+            display: none;
+        }
+        .url-disabled-note.show { display: block; }
+
+        /* --- Divider --- */
+        .divider {
+            display: flex;
+            align-items: center;
+            gap: 16px;
+            margin: 20px 0;
+            color: var(--text-dim);
+            font-size: 0.8rem;
+            text-transform: uppercase;
+            letter-spacing: 0.1em;
+        }
+        .divider::before, .divider::after {
+            content: '';
+            flex: 1;
+            height: 1px;
+            background: var(--border);
+        }
+
+        /* --- File Upload --- */
+        .drop-zone {
+            border: 2px dashed var(--border);
+            border-radius: var(--radius);
+            padding: 36px 20px;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.2s;
+            position: relative;
+        }
+        .drop-zone:hover, .drop-zone.dragover {
+            border-color: var(--accent);
+            background: rgba(108, 92, 231, 0.05);
+        }
+        .drop-zone input[type="file"] {
+            position: absolute;
+            inset: 0;
+            opacity: 0;
+            cursor: pointer;
+        }
+        .drop-zone .icon { font-size: 2rem; margin-bottom: 8px; }
+        .drop-zone .label { font-weight: 600; }
+        .drop-zone .hint { font-size: 0.82rem; color: var(--text-dim); margin-top: 4px; }
+
+        /* --- Settings --- */
+        .settings-row {
+            display: flex;
+            gap: 12px;
+            flex-wrap: wrap;
+        }
+        .setting-group {
+            flex: 1;
+            min-width: 200px;
+        }
+        .setting-group label {
+            display: block;
+            font-size: 0.8rem;
+            color: var(--text-dim);
+            margin-bottom: 6px;
+            text-transform: uppercase;
+            letter-spacing: 0.06em;
+        }
+        .setting-group select,
+        .setting-group input[type="text"] {
+            width: 100%;
+            padding: 10px 12px;
+            background: var(--bg);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            color: var(--text);
+            font-size: 0.88rem;
+            outline: none;
+        }
+        .setting-group select:focus,
+        .setting-group input[type="text"]:focus { border-color: var(--accent); }
+
+        /* --- Progress --- */
+        #progress-section { display: none; }
+        #progress-section.show { display: block; }
+
+        .progress-bar-bg {
+            width: 100%;
+            height: 8px;
+            background: var(--bg);
+            border-radius: 10px;
+            overflow: hidden;
+        }
+        .progress-bar-fill {
+            height: 100%;
+            width: 0%;
+            background: linear-gradient(90deg, var(--accent), var(--accent-glow));
+            border-radius: 10px;
+            transition: width 0.3s ease;
+        }
+        .progress-text {
+            margin-top: 10px;
+            font-size: 0.85rem;
+            color: var(--text-dim);
+        }
+        .progress-text .status-icon {
+            display: inline-block;
+            margin-right: 6px;
+        }
+
+        /* --- Output --- */
+        #output-section { display: none; }
+        #output-section.show { display: block; }
+
+        #transcript {
+            width: 100%;
+            min-height: 220px;
+            max-height: 500px;
+            padding: 16px;
+            background: var(--bg);
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            color: var(--text);
+            font-size: 0.92rem;
+            line-height: 1.7;
+            resize: vertical;
+            outline: none;
+            font-family: 'Segoe UI', system-ui, sans-serif;
+        }
+        .actions {
+            display: flex;
+            gap: 10px;
+            margin-top: 14px;
+            flex-wrap: wrap;
+        }
+        .toast {
+            position: fixed;
+            bottom: 30px;
+            left: 50%;
+            transform: translateX(-50%) translateY(20px);
+            background: var(--success);
+            color: #000;
+            padding: 10px 24px;
+            border-radius: 100px;
+            font-size: 0.85rem;
+            font-weight: 600;
+            opacity: 0;
+            transition: all 0.3s;
+            pointer-events: none;
+            z-index: 100;
+        }
+        .toast.show {
+            opacity: 1;
+            transform: translateX(-50%) translateY(0);
+        }
+
+        /* --- Error --- */
+        .error-box {
+            padding: 12px 16px;
+            background: rgba(248, 113, 113, 0.08);
+            border: 1px solid rgba(248, 113, 113, 0.25);
+            border-radius: 8px;
+            color: var(--danger);
+            font-size: 0.88rem;
+            margin-top: 14px;
+            display: none;
+        }
+        .error-box.show { display: block; }
+
+        /* --- Footer --- */
+        footer {
+            text-align: center;
+            margin-top: 40px;
+            padding: 20px;
+            color: var(--text-dim);
+            font-size: 0.78rem;
+        }
+        footer a { color: var(--accent-glow); text-decoration: none; }
+        footer a:hover { text-decoration: underline; }
+
+        /* --- Responsive --- */
+        @media (max-width: 600px) {
+            .container { padding: 16px 14px 40px; }
+            header h1 { font-size: 1.4rem; }
+            .url-row { flex-direction: column; }
+            .settings-row { flex-direction: column; }
+            .actions { flex-direction: column; }
+            .actions .btn { justify-content: center; }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>⚡ Transcriber</h1>
+            <p>Free transcription for YouTube, Instagram & uploaded files</p>
+            <div id="mode-badge" class="checking">
+                <span class="dot"></span>
+                <span id="mode-text">Checking backend...</span>
+            </div>
+        </header>
+
+        <!-- Input -->
+        <section>
+            <h2>Paste a link</h2>
+            <div class="url-row">
+                <input type="text" id="url-input" placeholder="https://youtube.com/watch?v=... or https://instagram.com/reel/...">
+                <button class="btn btn-primary" id="url-btn" disabled>Transcribe</button>
+            </div>
+            <div class="url-disabled-note" id="url-note">
+                ⚠️ Link transcription requires the Python backend running locally. Currently in browser-only mode — upload a file instead, or <a href="#settings-section" style="color:var(--warn);text-decoration:underline;">configure your backend URL</a> below.
+            </div>
+
+            <div class="divider">or upload a file</div>
+
+            <div class="drop-zone" id="drop-zone">
+                <input type="file" id="file-input" accept="audio/*,video/*,.mp3,.mp4,.wav,.webm,.ogg,.m4a,.aac,.flac,.mkv,.mov">
+                <div class="icon">📁</div>
+                <div class="label">Drop audio or video file here</div>
+                <div class="hint">MP4, MP3, WAV, WebM, OGG, M4A, MOV — up to 500MB</div>
+            </div>
+
+            <div class="error-box" id="error-box"></div>
+        </section>
+
+        <!-- Settings -->
+        <section id="settings-section">
+            <h2>Settings</h2>
+            <div class="settings-row">
+                <div class="setting-group">
+                    <label>Whisper Model (browser mode)</label>
+                    <select id="model-select">
+                        <option value="onnx-community/whisper-tiny.en">Tiny EN (~40MB, fastest)</option>
+                        <option value="onnx-community/whisper-base.en" selected>Base EN (~140MB, balanced)</option>
+                        <option value="onnx-community/whisper-small.en">Small EN (~460MB, best quality)</option>
+                        <option value="onnx-community/whisper-tiny">Tiny Multilingual</option>
+                        <option value="onnx-community/whisper-base">Base Multilingual</option>
+                    </select>
+                </div>
+                <div class="setting-group">
+                    <label>Backend URL</label>
+                    <input type="text" id="backend-url" value="http://localhost:5000" placeholder="http://localhost:5000">
+                </div>
+            </div>
+            <div style="margin-top:10px;">
+                <button class="btn btn-secondary" id="reconnect-btn" style="font-size:0.82rem;padding:8px 16px;">🔄 Re-check backend</button>
+            </div>
+        </section>
+
+        <!-- Progress -->
+        <section id="progress-section">
+            <h2>Progress</h2>
+            <div class="progress-bar-bg">
+                <div class="progress-bar-fill" id="progress-fill"></div>
+            </div>
+            <div class="progress-text" id="progress-text">
+                <span class="status-icon">⏳</span> Preparing...
+            </div>
+        </section>
+
+        <!-- Output -->
+        <section id="output-section">
+            <h2>Transcript</h2>
+            <textarea id="transcript" readonly></textarea>
+            <div class="actions">
+                <button class="btn btn-primary" id="copy-btn">📋 Copy text</button>
+                <button class="btn btn-secondary" id="download-txt-btn">💾 Download .txt</button>
+                <button class="btn btn-secondary" id="download-srt-btn">💾 Download .srt</button>
+                <button class="btn btn-secondary" id="clear-btn">✕ Clear</button>
+            </div>
+        </section>
+
+        <footer>
+            <p>Browser mode uses <a href="https://huggingface.co/docs/transformers.js" target="_blank">Transformers.js</a> (Whisper in WebAssembly). Fully private — nothing leaves your device.</p>
+            <p style="margin-top:6px;">Backend mode uses <a href="https://github.com/yt-dlp/yt-dlp" target="_blank">yt-dlp</a> + <a href="https://github.com/SYSTRAN/faster-whisper" target="_blank">faster-whisper</a>.</p>
+        </footer>
+    </div>
+
+    <div class="toast" id="toast"></div>
+
+    <script type="module">
+        // ============================================================
+        // State
+        // ============================================================
+        let backendAvailable = false;
+        let isProcessing = false;
+        let transcriber = null; // lazy-loaded Whisper pipeline
+        let lastChunks = [];    // timestamped chunks for SRT
+
+        // ============================================================
+        // DOM refs
+        // ============================================================
+        const $ = (s) => document.querySelector(s);
+        const urlInput     = $('#url-input');
+        const urlBtn       = $('#url-btn');
+        const urlNote      = $('#url-note');
+        const fileInput    = $('#file-input');
+        const dropZone     = $('#drop-zone');
+        const modelSelect  = $('#model-select');
+        const backendUrl   = $('#backend-url');
+        const reconnectBtn = $('#reconnect-btn');
+        const modeBadge    = $('#mode-badge');
+        const modeText     = $('#mode-text');
+        const progressSection = $('#progress-section');
+        const progressFill = $('#progress-fill');
+        const progressText = $('#progress-text');
+        const outputSection = $('#output-section');
+        const transcriptEl = $('#transcript');
+        const errorBox     = $('#error-box');
+        const copyBtn      = $('#copy-btn');
+        const dlTxtBtn     = $('#download-txt-btn');
+        const dlSrtBtn     = $('#download-srt-btn');
+        const clearBtn     = $('#clear-btn');
+        const toast        = $('#toast');
+
+        // ============================================================
+        // Backend detection
+        // ============================================================
+        async function checkBackend() {
+            modeBadge.className = 'checking';
+            modeText.textContent = 'Checking backend...';
+            const url = backendUrl.value.replace(/\/+$/, '');
+            try {
+                const res = await fetch(`${url}/api/health`, { signal: AbortSignal.timeout(3000) });
+                const data = await res.json();
+                if (data.status === 'ok') {
+                    backendAvailable = true;
+                    modeBadge.className = 'full';
+                    modeText.textContent = 'Full mode — backend connected';
+                    urlBtn.disabled = false;
+                    urlInput.disabled = false;
+                    urlNote.classList.remove('show');
+                    return;
+                }
+            } catch {}
+            backendAvailable = false;
+            modeBadge.className = 'browser';
+            modeText.textContent = 'Browser-only mode';
+            urlBtn.disabled = true;
+            urlInput.disabled = true;
+            urlNote.classList.add('show');
+        }
+
+        // ============================================================
+        // UI helpers
+        // ============================================================
+        function showError(msg) {
+            errorBox.textContent = msg;
+            errorBox.classList.add('show');
+        }
+        function hideError() { errorBox.classList.remove('show'); }
+
+        function showProgress(text, pct) {
+            progressSection.classList.add('show');
+            progressText.innerHTML = `<span class="status-icon">⏳</span> ${text}`;
+            progressFill.style.width = `${pct}%`;
+        }
+        function hideProgress() {
+            progressSection.classList.remove('show');
+            progressFill.style.width = '0%';
+        }
+
+        function showOutput(text, chunks) {
+            transcriptEl.value = text;
+            lastChunks = chunks || [];
+            outputSection.classList.add('show');
+        }
+
+        function showToast(msg) {
+            toast.textContent = msg;
+            toast.classList.add('show');
+            setTimeout(() => toast.classList.remove('show'), 2000);
+        }
+
+        function setProcessing(v) {
+            isProcessing = v;
+            urlBtn.disabled = v || !backendAvailable;
+            fileInput.disabled = v;
+        }
+
+        // ============================================================
+        // Audio extraction in browser
+        // ============================================================
+        async function extractAudio(file) {
+            showProgress('Decoding audio...', 10);
+            const arrayBuffer = await file.arrayBuffer();
+            const audioCtx = new (window.AudioContext || window.webkitAudioContext)({ sampleRate: 16000 });
+            const decoded = await audioCtx.decodeAudioData(arrayBuffer);
+            const float32 = decoded.getChannelData(0); // mono, 16kHz
+            await audioCtx.close();
+            return float32;
+        }
+
+        // ============================================================
+        // Browser-side Whisper (Transformers.js)
+        // ============================================================
+        async function loadWhisperBrowser() {
+            if (transcriber) return transcriber;
+            showProgress('Downloading Whisper model (first time only)...', 15);
+
+            const { pipeline, env } = await import('https://cdn.jsdelivr.net/npm/@huggingface/transformers@3');
+            env.allowLocalModels = false;
+
+            const modelId = modelSelect.value;
+            transcriber = await pipeline('automatic-speech-recognition', modelId, {
+                dtype: 'q8',
+                device: 'wasm',
+                progress_callback: (progress) => {
+                    if (progress.status === 'downloading' || progress.status === 'progress') {
+                        const pct = progress.progress ? Math.round(progress.progress) : 20;
+                        showProgress(`Downloading model: ${pct}%`, Math.min(pct, 50));
+                    } else if (progress.status === 'ready') {
+                        showProgress('Model loaded', 50);
+                    }
+                }
+            });
+            return transcriber;
+        }
+
+        async function transcribeBrowser(file) {
+            setProcessing(true);
+            hideError();
+            try {
+                const audio = await extractAudio(file);
+
+                const durationSec = audio.length / 16000;
+                if (durationSec > 600) {
+                    showProgress('⚠️ Long file detected — browser transcription may be slow. Consider using the backend for files > 10 min.', 10);
+                    await new Promise(r => setTimeout(r, 2000));
+                }
+
+                const whisper = await loadWhisperBrowser();
+                showProgress('Transcribing (this may take a while in-browser)...', 55);
+
+                const result = await whisper(audio, {
+                    chunk_length_s: 30,
+                    stride_length_s: 5,
+                    return_timestamps: true,
+                    language: modelSelect.value.endsWith('.en') ? 'en' : undefined,
+                });
+
+                showProgress('Done!', 100);
+                const chunks = result.chunks || [];
+                const text = result.text || chunks.map(c => c.text).join(' ');
+                showOutput(text.trim(), chunks);
+            } catch (err) {
+                showError(`Transcription failed: ${err.message}`);
+            } finally {
+                setProcessing(false);
+                setTimeout(hideProgress, 1500);
+            }
+        }
+
+        // ============================================================
+        // Backend-based transcription
+        // ============================================================
+        async function transcribeBackendURL(url) {
+            setProcessing(true);
+            hideError();
+            const base = backendUrl.value.replace(/\/+$/, '');
+            try {
+                showProgress('Sending URL to backend (downloading + transcribing)...', 20);
+
+                const res = await fetch(`${base}/api/transcribe`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ url }),
+                });
+
+                if (!res.ok) {
+                    const errData = await res.json().catch(() => ({}));
+                    throw new Error(errData.error || `Server error ${res.status}`);
+                }
+
+                showProgress('Receiving transcript...', 80);
+                const data = await res.json();
+                showProgress('Done!', 100);
+                showOutput(data.text, data.chunks || []);
+            } catch (err) {
+                showError(`Backend error: ${err.message}`);
+            } finally {
+                setProcessing(false);
+                setTimeout(hideProgress, 1500);
+            }
+        }
+
+        async function transcribeBackendFile(file) {
+            setProcessing(true);
+            hideError();
+            const base = backendUrl.value.replace(/\/+$/, '');
+            try {
+                showProgress('Uploading file to backend...', 15);
+                const formData = new FormData();
+                formData.append('file', file);
+
+                const res = await fetch(`${base}/api/transcribe`, {
+                    method: 'POST',
+                    body: formData,
+                });
+
+                if (!res.ok) {
+                    const errData = await res.json().catch(() => ({}));
+                    throw new Error(errData.error || `Server error ${res.status}`);
+                }
+
+                showProgress('Receiving transcript...', 80);
+                const data = await res.json();
+                showProgress('Done!', 100);
+                showOutput(data.text, data.chunks || []);
+            } catch (err) {
+                showError(`Backend error: ${err.message}`);
+            } finally {
+                setProcessing(false);
+                setTimeout(hideProgress, 1500);
+            }
+        }
+
+        // ============================================================
+        // SRT generation
+        // ============================================================
+        function chunksToSRT(chunks) {
+            if (!chunks.length) return transcriptEl.value; // fallback to plain text
+            return chunks.map((c, i) => {
+                const start = formatSRTTime(c.timestamp[0] || 0);
+                const end = formatSRTTime(c.timestamp[1] || c.timestamp[0] + 5);
+                return `${i + 1}\n${start} --> ${end}\n${c.text.trim()}\n`;
+            }).join('\n');
+        }
+
+        function formatSRTTime(seconds) {
+            const h = Math.floor(seconds / 3600);
+            const m = Math.floor((seconds % 3600) / 60);
+            const s = Math.floor(seconds % 60);
+            const ms = Math.round((seconds % 1) * 1000);
+            return `${pad(h)}:${pad(m)}:${pad(s)},${String(ms).padStart(3, '0')}`;
+        }
+        function pad(n) { return String(n).padStart(2, '0'); }
+
+        // ============================================================
+        // Download helper
+        // ============================================================
+        function downloadFile(content, filename, mime) {
+            const blob = new Blob([content], { type: mime });
+            const a = document.createElement('a');
+            a.href = URL.createObjectURL(blob);
+            a.download = filename;
+            a.click();
+            URL.revokeObjectURL(a.href);
+        }
+
+        // ============================================================
+        // Event listeners
+        // ============================================================
+
+        // URL transcribe
+        urlBtn.addEventListener('click', () => {
+            const url = urlInput.value.trim();
+            if (!url) return showError('Please paste a URL.');
+            if (!backendAvailable) return showError('Backend not connected.');
+            hideError();
+            transcribeBackendURL(url);
+        });
+        urlInput.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter') urlBtn.click();
+        });
+
+        // File upload
+        fileInput.addEventListener('change', (e) => {
+            const file = e.target.files[0];
+            if (!file) return;
+            hideError();
+            if (backendAvailable) {
+                transcribeBackendFile(file);
+            } else {
+                transcribeBrowser(file);
+            }
+        });
+
+        // Drag and drop
+        dropZone.addEventListener('dragover', (e) => { e.preventDefault(); dropZone.classList.add('dragover'); });
+        dropZone.addEventListener('dragleave', () => dropZone.classList.remove('dragover'));
+        dropZone.addEventListener('drop', (e) => {
+            e.preventDefault();
+            dropZone.classList.remove('dragover');
+            const file = e.dataTransfer.files[0];
+            if (!file) return;
+            hideError();
+            if (backendAvailable) {
+                transcribeBackendFile(file);
+            } else {
+                transcribeBrowser(file);
+            }
+        });
+
+        // Reconnect backend
+        reconnectBtn.addEventListener('click', () => {
+            transcriber = null; // reset model cache if model changed
+            checkBackend();
+        });
+
+        // Copy
+        copyBtn.addEventListener('click', () => {
+            navigator.clipboard.writeText(transcriptEl.value).then(() => showToast('Copied to clipboard!'));
+        });
+
+        // Downloads
+        dlTxtBtn.addEventListener('click', () => {
+            downloadFile(transcriptEl.value, 'transcript.txt', 'text/plain');
+            showToast('Downloaded .txt');
+        });
+        dlSrtBtn.addEventListener('click', () => {
+            const srt = chunksToSRT(lastChunks);
+            downloadFile(srt, 'transcript.srt', 'text/plain');
+            showToast('Downloaded .srt');
+        });
+
+        // Clear
+        clearBtn.addEventListener('click', () => {
+            outputSection.classList.remove('show');
+            transcriptEl.value = '';
+            lastChunks = [];
+            urlInput.value = '';
+            fileInput.value = '';
+        });
+
+        // ============================================================
+        // Init
+        // ============================================================
+        checkBackend();
+    </script>
+</body>
+</html>
